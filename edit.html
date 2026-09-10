@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Edit Card</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="admin-wrap">
+    <div class="top-bar">
+      <h1 id="pageTitle">New Card</h1>
+      <button class="btn-secondary" onclick="window.location.href='dashboard.html'">Back</button>
+    </div>
+
+    <label for="photo">Photo</label>
+    <img id="photoPreview" class="avatar-preview" style="display:none;" />
+    <input type="file" id="photo" accept="image/*" />
+
+    <label for="fullName">Full Name</label>
+    <input type="text" id="fullName" placeholder="Jane Doe" />
+
+    <label for="jobTitle">Job Title</label>
+    <input type="text" id="jobTitle" placeholder="Sales Manager" />
+
+    <label for="phone">Phone Number</label>
+    <input type="tel" id="phone" placeholder="+44 7000 000000" />
+
+    <label for="whatsapp">WhatsApp Number</label>
+    <input type="tel" id="whatsapp" placeholder="+44 7000 000000" />
+
+    <label for="website">Website</label>
+    <input type="url" id="website" placeholder="https://example.com" />
+
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="jane@example.com" />
+
+    <label for="instagram">Instagram</label>
+    <input type="text" id="instagram" placeholder="https://instagram.com/janedoe" />
+
+    <label for="facebook">Facebook</label>
+    <input type="text" id="facebook" placeholder="https://facebook.com/janedoe" />
+
+    <label for="tiktok">TikTok</label>
+    <input type="text" id="tiktok" placeholder="https://tiktok.com/@janedoe" />
+
+    <label for="twitter">X (Twitter)</label>
+    <input type="text" id="twitter" placeholder="https://x.com/janedoe" />
+
+    <button class="btn-primary" id="saveBtn">Save Card</button>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="success-msg" id="successMsg"></div>
+
+    <div id="linkSection" style="display:none;">
+      <label>Public Card Link (paste this onto the NFC tag)</label>
+      <div class="link-box">
+        <code id="cardLink"></code>
+        <button class="btn-secondary" id="copyLinkBtn">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const cardId = urlParams.get("id");
+    let existingPhotoUrl = null;
+
+    (async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      if (!data.session) {
+        window.location.href = "login.html";
+        return;
+      }
+      if (cardId) {
+        document.getElementById("pageTitle").textContent = "Edit Card";
+        await loadCard(cardId);
+      }
+    })();
+
+    async function loadCard(id) {
+      const { data: card, error } = await supabaseClient
+        .from("cards")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error || !card) {
+        showError("Could not load this card.");
+        return;
+      }
+
+      document.getElementById("fullName").value = card.full_name || "";
+      document.getElementById("jobTitle").value = card.job_title || "";
+      document.getElementById("phone").value = card.phone || "";
+      document.getElementById("whatsapp").value = card.whatsapp || "";
+      document.getElementById("website").value = card.website || "";
+      document.getElementById("email").value = card.email || "";
+      document.getElementById("instagram").value = card.instagram || "";
+      document.getElementById("facebook").value = card.facebook || "";
+      document.getElementById("tiktok").value = card.tiktok || "";
+      document.getElementById("twitter").value = card.twitter || "";
+
+      if (card.photo_url) {
+        existingPhotoUrl = card.photo_url;
+        const preview = document.getElementById("photoPreview");
+        preview.src = card.photo_url;
+        preview.style.display = "block";
+      }
+
+      showCardLink(card.slug);
+    }
+
+    document.getElementById("photo").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const preview = document.getElementById("photoPreview");
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      hideMessages();
+
+      const fullName = document.getElementById("fullName").value.trim();
+      if (!fullName) {
+        showError("Full name is required.");
+        return;
+      }
+
+      const saveBtn = document.getElementById("saveBtn");
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving...";
+
+      try {
+        let photoUrl = existingPhotoUrl;
+        const fileInput = document.getElementById("photo");
+        if (fileInput.files && fileInput.files[0]) {
+          photoUrl = await uploadPhoto(fileInput.files[0]);
+        }
+
+        const cardData = {
+          full_name: fullName,
+          job_title: document.getElementById("jobTitle").value.trim(),
+          phone: document.getElementById("phone").value.trim(),
+          whatsapp: document.getElementById("whatsapp").value.trim(),
+          website: document.getElementById("website").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          instagram: document.getElementById("instagram").value.trim(),
+          facebook: document.getElementById("facebook").value.trim(),
+          tiktok: document.getElementById("tiktok").value.trim(),
+          twitter: document.getElementById("twitter").value.trim(),
+          photo_url: photoUrl,
+          updated_at: new Date().toISOString(),
+        };
+
+        let savedCard;
+
+        if (cardId) {
+          const { data, error } = await supabaseClient
+            .from("cards")
+            .update(cardData)
+            .eq("id", cardId)
+            .select()
+            .single();
+          if (error) throw error;
+          savedCard = data;
+        } else {
+          cardData.slug = makeSlug(fullName);
+          const { data, error } = await supabaseClient
+            .from("cards")
+            .insert(cardData)
+            .select()
+            .single();
+          if (error) throw error;
+          savedCard = data;
+        }
+
+        showSuccess("Saved!");
+        showCardLink(savedCard.slug);
+
+        // update the URL to include the id, in case this was a new card
+        if (!cardId) {
+          window.history.replaceState({}, "", `edit.html?id=${savedCard.id}`);
+          document.getElementById("pageTitle").textContent = "Edit Card";
+        }
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save Card";
+      }
+    });
+
+    async function uploadPhoto(file) {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+      const { error } = await supabaseClient.storage
+        .from("card-photos")
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data } = supabaseClient.storage.from("card-photos").getPublicUrl(fileName);
+      return data.publicUrl;
+    }
+
+    function makeSlug(name) {
+      const base = name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const random = Math.random().toString(36).slice(2, 6);
+      return `${base}-${random}`;
+    }
+
+    function showCardLink(slug) {
+      const publicBaseUrl = window.location.origin + window.location.pathname.replace("edit.html", "");
+      const fullUrl = `${publicBaseUrl}card.html?u=${encodeURIComponent(slug)}`;
+      document.getElementById("cardLink").textContent = fullUrl;
+      document.getElementById("linkSection").style.display = "block";
+    }
+
+    document.getElementById("copyLinkBtn").addEventListener("click", () => {
+      const text = document.getElementById("cardLink").textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById("copyLinkBtn");
+        btn.textContent = "Copied!";
+        setTimeout(() => (btn.textContent = "Copy"), 1500);
+      });
+    });
+
+    function showError(msg) {
+      const el = document.getElementById("errorMsg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function showSuccess(msg) {
+      const el = document.getElementById("successMsg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function hideMessages() {
+      document.getElementById("errorMsg").style.display = "none";
+      document.getElementById("successMsg").style.display = "none";
+    }
+  </script>
+</body>
+</html>

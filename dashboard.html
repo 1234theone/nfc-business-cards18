@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your Cards</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="admin-wide">
+    <div class="top-bar">
+      <h1>Your Cards</h1>
+      <button class="btn-secondary" id="logoutBtn">Log Out</button>
+    </div>
+
+    <button class="btn-primary" id="newCardBtn" style="margin-top:0;">+ New Card</button>
+
+    <ul class="card-list" id="cardList"></ul>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      No cards yet — click "+ New Card" to make your first one.
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    (async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      if (!data.session) {
+        window.location.href = "login.html";
+        return;
+      }
+      loadCards();
+    })();
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await supabaseClient.auth.signOut();
+      window.location.href = "login.html";
+    });
+
+    document.getElementById("newCardBtn").addEventListener("click", () => {
+      window.location.href = "edit.html";
+    });
+
+    async function loadCards() {
+      const { data: cards, error } = await supabaseClient
+        .from("cards")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const listEl = document.getElementById("cardList");
+      const emptyEl = document.getElementById("emptyState");
+      listEl.innerHTML = "";
+
+      if (error) {
+        listEl.innerHTML = `<div class="error-msg" style="display:block;">Error loading cards: ${error.message}</div>`;
+        return;
+      }
+
+      if (!cards || cards.length === 0) {
+        emptyEl.style.display = "block";
+        return;
+      }
+      emptyEl.style.display = "none";
+
+      const publicBaseUrl = window.location.origin + window.location.pathname.replace("dashboard.html", "");
+
+      cards.forEach((card) => {
+        const li = document.createElement("li");
+        li.className = "card-list-item";
+
+        const cardUrl = `${publicBaseUrl}card.html?u=${encodeURIComponent(card.slug)}`;
+
+        li.innerHTML = `
+          <img src="${card.photo_url || ''}" onerror="this.style.display='none'" alt="" />
+          <div class="card-list-info">
+            <div class="card-list-name">${escapeHtml(card.full_name || "Untitled")}</div>
+            <div class="card-list-sub">${escapeHtml(card.job_title || "")}</div>
+          </div>
+          <div class="card-list-actions">
+            <button class="btn-secondary" onclick="copyLink('${cardUrl}', this)">Copy Link</button>
+            <button class="btn-secondary" onclick="window.location.href='edit.html?id=${card.id}'">Edit</button>
+            <button class="btn-danger" onclick="deleteCard('${card.id}')">Delete</button>
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+
+    async function deleteCard(id) {
+      if (!confirm("Delete this card permanently? The NFC link will stop working.")) return;
+      const { error } = await supabaseClient.from("cards").delete().eq("id", id);
+      if (error) {
+        alert("Error deleting: " + error.message);
+        return;
+      }
+      loadCards();
+    }
+
+    function copyLink(url, btnEl) {
+      navigator.clipboard.writeText(url).then(() => {
+        const original = btnEl.textContent;
+        btnEl.textContent = "Copied!";
+        setTimeout(() => (btnEl.textContent = original), 1500);
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
