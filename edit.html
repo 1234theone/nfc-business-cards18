@@ -48,6 +48,9 @@
     <label for="twitter">X (Twitter)</label>
     <input type="text" id="twitter" placeholder="https://x.com/janedoe" />
 
+    <label for="googleReview">Google Review Link</label>
+    <input type="text" id="googleReview" placeholder="https://g.page/r/your-review-link" />
+
     <button class="btn-primary" id="saveBtn">Save Card</button>
 
     <div class="error-msg" id="errorMsg"></div>
@@ -102,6 +105,7 @@
       document.getElementById("facebook").value = card.facebook || "";
       document.getElementById("tiktok").value = card.tiktok || "";
       document.getElementById("twitter").value = card.twitter || "";
+      document.getElementById("googleReview").value = card.google_review_url || "";
 
       if (card.photo_url) {
         existingPhotoUrl = card.photo_url;
@@ -152,6 +156,7 @@
           facebook: document.getElementById("facebook").value.trim(),
           tiktok: document.getElementById("tiktok").value.trim(),
           twitter: document.getElementById("twitter").value.trim(),
+          google_review_url: document.getElementById("googleReview").value.trim(),
           photo_url: photoUrl,
           updated_at: new Date().toISOString(),
         };

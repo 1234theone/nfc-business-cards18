@@ -46,6 +46,12 @@
 
       let actionsHtml = "";
 
+      if (card.google_review_url) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.google_review_url)}" target="_blank" rel="noopener" style="background:#fff8e1;">
+            <span class="card-action-icon">⭐</span> Leave a Google Review
+          </a>`;
+      }
       if (card.phone) {
         actionsHtml += `
           <a class="card-action-btn" href="tel:${escapeHtml(card.phone)}">
