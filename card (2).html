@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Contact Card</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="card-page" id="cardPage">
+    <!-- filled in by script -->
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get("u");
+      const container = document.getElementById("cardPage");
+
+      if (!slug) {
+        container.innerHTML = `<div class="card-page-notfound">No card specified.</div>`;
+        return;
+      }
+
+      const { data: card, error } = await supabaseClient
+        .from("cards")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+
+      if (error || !card) {
+        container.innerHTML = `<div class="card-page-notfound">This card doesn't exist or has been removed.</div>`;
+        return;
+      }
+
+      document.title = card.full_name || "Contact Card";
+      renderCard(card, container);
+    })();
+
+    function renderCard(card, container) {
+      const bgColor = card.bg_color || "#ffffff";
+      const textColor = card.text_color || "#1a1a1a";
+      const accentColor = card.accent_color || "#5b5fed";
+      const accentTextColor = isColorDark(accentColor) ? "#ffffff" : "#1a1a1a";
+
+      const photoHtml = card.photo_url
+        ? `<img class="card-photo" src="${card.photo_url}" alt="${escapeHtml(card.full_name)}" />`
+        : `<div class="card-photo"></div>`;
+
+      let actionsHtml = "";
+
+      if (card.google_review_url) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.google_review_url)}" target="_blank" rel="noopener" style="background:${accentColor}22; color:${textColor};">
+            <span class="card-action-icon">⭐</span> Leave a Google Review
+          </a>`;
+      }
+      if (card.phone) {
+        actionsHtml += `
+          <a class="card-action-btn" href="tel:${escapeHtml(card.phone)}" style="color:${textColor};">
+            <span class="card-action-icon">📞</span> ${escapeHtml(card.phone)}
+          </a>`;
+      }
+      if (card.whatsapp) {
+        const waNumber = card.whatsapp.replace(/[^0-9+]/g, "");
+        actionsHtml += `
+          <a class="card-action-btn" href="https://wa.me/${encodeURIComponent(waNumber.replace('+',''))}" target="_blank" rel="noopener" style="color:${textColor};">
+            <span class="card-action-icon">💬</span> WhatsApp
+          </a>`;
+      }
+      if (card.email) {
+        actionsHtml += `
+          <a class="card-action-btn" href="mailto:${escapeHtml(card.email)}" style="color:${textColor};">
+            <span class="card-action-icon">✉️</span> ${escapeHtml(card.email)}
+          </a>`;
+      }
+      if (card.website) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.website)}" target="_blank" rel="noopener" style="color:${textColor};">
+            <span class="card-action-icon">🌐</span> ${escapeHtml(card.website)}
+          </a>`;
+      }
+      if (card.instagram) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.instagram)}" target="_blank" rel="noopener" style="color:${textColor};">
+            <span class="card-action-icon" style="display:inline-flex;">
+              <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="igGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#FED576"/>
+                    <stop offset="26%" stop-color="#F47133"/>
+                    <stop offset="61%" stop-color="#BC3081"/>
+                    <stop offset="100%" stop-color="#4C63D2"/>
+                  </linearGradient>
+                </defs>
+                <rect width="24" height="24" rx="6" fill="url(#igGrad)"/>
+                <rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="none" stroke="white" stroke-width="1.6"/>
+                <circle cx="12" cy="12" r="3.6" fill="none" stroke="white" stroke-width="1.6"/>
+                <circle cx="16.6" cy="7.4" r="1.1" fill="white"/>
+              </svg>
+            </span> Instagram
+          </a>`;
+      }
+      if (card.facebook) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.facebook)}" target="_blank" rel="noopener" style="color:${textColor};">
+            <span class="card-action-icon" style="display:inline-flex;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2" xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </span> Facebook
+          </a>`;
+      }
+      if (card.tiktok) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.tiktok)}" target="_blank" rel="noopener" style="color:${textColor};">
+            <span class="card-action-icon">🎵</span> TikTok
+          </a>`;
+      }
+      if (card.twitter) {
+        actionsHtml += `
+          <a class="card-action-btn" href="${escapeHtml(card.twitter)}" target="_blank" rel="noopener" style="color:${textColor};">
+            <span class="card-action-icon">✖️</span> X (Twitter)
+          </a>`;
+      }
+
+
+      container.innerHTML = `
+        <div class="card-box" style="background:${bgColor}; border:1px solid ${accentColor}22;">
+          ${photoHtml}
+          <div class="card-name" style="color:${textColor};">${escapeHtml(card.full_name || "")}</div>
+          <div class="card-title" style="color:${textColor}; opacity:0.7;">${escapeHtml(card.job_title || "")}</div>
+          <div class="card-actions">
+            ${actionsHtml}
+            <button class="card-action-btn save-contact-btn" id="saveContactBtn" style="background:${accentColor}; color:${accentTextColor}; border:none;">
+              <span class="card-action-icon">💾</span> Save Contact
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("saveContactBtn").addEventListener("click", () => downloadVCard(card));
+    }
+
+    function downloadVCard(card) {
+      const vcard = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        `FN:${card.full_name || ""}`,
+        card.job_title ? `TITLE:${card.job_title}` : "",
+        card.phone ? `TEL;TYPE=CELL:${card.phone}` : "",
+        card.email ? `EMAIL:${card.email}` : "",
+        card.website ? `URL:${card.website}` : "",
+        "END:VCARD",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const blob = new Blob([vcard], { type: "text/vcard" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(card.full_name || "contact").replace(/\s+/g, "_")}.vcf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function isColorDark(hex) {
+      hex = hex.replace("#", "");
+      if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 140;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str || "";
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
